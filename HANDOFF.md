@@ -9,7 +9,7 @@ Building a multi-agent web app generator in `/home/ishnoor/dev/experiments` that
 ## Architecture Source
 Ported from `/home/ishnoor/dev/SuperApp` planning agents system, adapted for end-to-end code generation with Convex database.
 
-## Completed Commits (1-9)
+## Completed Commits (1-10)
 
 | Commit | Description | Key Files |
 |--------|-------------|-----------|
@@ -22,16 +22,18 @@ Ported from `/home/ishnoor/dev/SuperApp` planning agents system, adapted for end
 | 7 | Experiment CRUD via Convex | `convex/messages.ts`, `NewExperimentDialog.tsx`, Dialog component |
 | 8 | SSE Chat Endpoint | `src/app/api/chat/route.ts` |
 | 9 | Connect Chat to Agent | Updated `page.tsx` with SSE handling, agent status updates |
+| 10 | Agent Status & Activities Tracking | `convex/activities.ts`, `ActivityFeed.tsx`, updated `AgentPanel.tsx` with tabs |
 
 ## Test Status
 - **39 unit tests** passing (`npm run test`)
-- **12 e2e tests** passing (`npm run test:e2e`)
+- **13 e2e tests** passing (`npm run test:e2e`)
 
-## Remaining Work (Commits 10-21)
+## Remaining Work (Commits 11-21)
 
-### Commit 10: Agent Status & Activities Tracking
-- Store agent activities in Convex
-- Show activity feed in UI
+### ✅ Commit 10: Agent Status & Activities Tracking (COMPLETED)
+- ✅ Store agent activities in Convex
+- ✅ Show activity feed in UI
+- ✅ Tabs for Agents/Activity views
 
 ### Commit 11: Block Storage & Spec Viewer
 - Store planning blocks (entities, endpoints, screens) in Convex
@@ -95,12 +97,12 @@ To continue this work, tell the new agent:
 ```
 Continue work on the multi-agent experiment builder in /home/ishnoor/dev/experiments
 
-Read HANDOFF.md for full context. The project is on branch feature/multi-agent-builder with 9 commits completed.
+Read HANDOFF.md for full context. The project is on branch feature/multi-agent-builder with 10 commits completed.
 
-Next step: Commit 10 - Agent Status & Activities Tracking
-- Store agent activities in Convex (create convex/activities.ts)
-- Add activity feed component to UI
-- Update experiment-agent.ts to save activities
+Next step: Commit 11 - Block Storage & Spec Viewer
+- Store planning blocks (entities, endpoints, screens) in Convex
+- Add spec viewer panel to UI showing structured specs from agents
+- Update experiment-agent.ts to save blocks to Convex
 
 Run tests after each commit: npm run test && npm run test:e2e
 ```
