@@ -1,7 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { CheckCircle2Icon, CircleIcon, Loader2Icon, AlertCircleIcon } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CheckCircle2Icon, CircleIcon, Loader2Icon, AlertCircleIcon, Activity, Bot } from "lucide-react";
+import { ActivityFeed } from "./ActivityFeed";
 
 interface Agent {
   id: string;
@@ -14,6 +17,7 @@ interface Agent {
 interface AgentPanelProps {
   agents: Agent[];
   currentPhase: string;
+  experimentId?: string | null;
 }
 
 const statusIcons = {
@@ -32,7 +36,9 @@ const statusColors = {
   error: "text-red-500",
 };
 
-export function AgentPanel({ agents, currentPhase }: AgentPanelProps) {
+export function AgentPanel({ agents, currentPhase, experimentId }: AgentPanelProps) {
+  const [activeTab, setActiveTab] = useState("agents");
+
   // Group agents by category
   const planningAgents = agents.filter((a) =>
     ["orchestrator", "user-interview", "ux-design", "frontend", "backend-database", "backend-api", "backend-logic", "backend-infra", "principal-developer"].includes(a.role)
@@ -49,12 +55,26 @@ export function AgentPanel({ agents, currentPhase }: AgentPanelProps) {
   return (
     <div className="w-72 border-l bg-muted/30 flex flex-col h-full">
       <div className="p-4 border-b">
-        <h2 className="font-semibold">Agents</h2>
+        <h2 className="font-semibold">Status</h2>
         <p className="text-xs text-muted-foreground capitalize">
           Phase: {currentPhase}
         </p>
       </div>
-      <ScrollArea className="flex-1">
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+        <TabsList className="grid w-full grid-cols-2 px-4">
+          <TabsTrigger value="agents" className="text-xs">
+            <Bot className="h-3 w-3 mr-1" />
+            Agents
+          </TabsTrigger>
+          <TabsTrigger value="activity" className="text-xs">
+            <Activity className="h-3 w-3 mr-1" />
+            Activity
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="agents" className="flex-1 mt-0">
+          <ScrollArea className="h-full">
         <div className="p-4 space-y-6">
           {/* Planning Agents */}
           <div>
@@ -143,7 +163,13 @@ export function AgentPanel({ agents, currentPhase }: AgentPanelProps) {
             </div>
           </div>
         </div>
-      </ScrollArea>
+          </ScrollArea>
+        </TabsContent>
+
+        <TabsContent value="activity" className="flex-1 mt-0">
+          <ActivityFeed experimentId={experimentId || null} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

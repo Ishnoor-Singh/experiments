@@ -10,15 +10,15 @@ test.describe('Experiment Builder UI', () => {
     // Without an experiment selected, center shows empty state
     await expect(page.getByText('Select or create an experiment to start')).toBeVisible();
 
-    // Check right agent panel exists with section headers
-    await expect(page.getByRole('heading', { name: 'Agents' })).toBeVisible();
+    // Check right status panel exists
+    await expect(page.getByRole('heading', { name: 'Status' })).toBeVisible();
   });
 
   test('shows empty state when no experiments', async ({ page }) => {
     await page.goto('/');
 
     // Check that sidebar exists
-    const sidebar = page.locator('[class*="border-r"]');
+    const sidebar = page.locator('.w-64.border-r');
     await expect(sidebar).toBeVisible();
   });
 
@@ -117,5 +117,30 @@ test.describe('Experiment Builder UI', () => {
     await expect(page.getByRole('heading', { name: 'New Experiment' })).not.toBeVisible();
     // Use first() since there may be multiple experiments with same name from previous test runs
     await expect(page.getByText('Test Todo App').first()).toBeVisible();
+  });
+
+  test('displays activity feed tab', async ({ page }) => {
+    await page.goto('/');
+
+    // Check that both tabs are visible
+    const agentsTab = page.getByRole('tab', { name: 'Agents' });
+    const activityTab = page.getByRole('tab', { name: 'Activity' });
+
+    await expect(agentsTab).toBeVisible();
+    await expect(activityTab).toBeVisible();
+
+    // Agents tab should be active by default
+    await expect(agentsTab).toHaveAttribute('aria-selected', 'true');
+    await expect(activityTab).toHaveAttribute('aria-selected', 'false');
+
+    // Click on Activity tab
+    await activityTab.click();
+
+    // Activity tab should now be active
+    await expect(activityTab).toHaveAttribute('aria-selected', 'true');
+    await expect(agentsTab).toHaveAttribute('aria-selected', 'false');
+
+    // Activity feed should show empty state
+    await expect(page.getByText('Select an experiment to view activities')).toBeVisible();
   });
 });

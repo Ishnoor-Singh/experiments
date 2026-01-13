@@ -27,4 +27,19 @@ export default defineSchema({
     data: v.any(),
     createdBy: v.optional(v.string()), // agent role that created this
   }).index("by_experiment", ["experimentId"]),
+
+  // Agent activity tracking
+  activities: defineTable({
+    experimentId: v.id("experiments"),
+    type: v.string(), // agent_start | agent_complete | tool_use | phase_change | block_created | error
+    agentRole: v.optional(v.string()),
+    agentName: v.optional(v.string()),
+    phase: v.optional(v.string()),
+    tool: v.optional(v.string()),
+    blockType: v.optional(v.string()),
+    blockId: v.optional(v.string()),
+    error: v.optional(v.string()),
+    metadata: v.optional(v.any()),
+    timestamp: v.number(),
+  }).index("by_experiment", ["experimentId"]),
 });

@@ -215,7 +215,7 @@ export default function ExperimentBuilder() {
       />
 
       {/* Right Panel - Agent Status */}
-      <AgentPanel agents={agents} currentPhase={currentPhase} />
+      <AgentPanel agents={agents} currentPhase={currentPhase} experimentId={selectedExperimentId} />
 
       {/* New Experiment Dialog */}
       <NewExperimentDialog

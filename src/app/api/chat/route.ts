@@ -1,6 +1,9 @@
 import { NextRequest } from "next/server";
 import { ExperimentAgent } from "@/lib/agents/experiment-agent";
 import { StreamEvent } from "@/lib/agents/types";
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "../../../../convex/_generated/api";
+import { Id } from "../../../../convex/_generated/dataModel";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -105,6 +108,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Initialize Convex client
+    const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+
     const encoder = createSSEEncoder();
     const agent = new ExperimentAgent(experimentId);
 
@@ -112,6 +118,59 @@ export async function POST(request: NextRequest) {
       async start(controller) {
         try {
           for await (const event of agent.chat(message)) {
+            // Save activities to Convex based on event type
+            try {
+              if (event.type === "agent_start" && event.agentRole) {
+                await convex.mutation(api.activities.create, {
+                  experimentId: experimentId as Id<"experiments">,
+                  type: "agent_start",
+                  agentRole: event.agentRole,
+                  agentName: event.agentName,
+                });
+              } else if (event.type === "agent_end" && event.agentRole) {
+                await convex.mutation(api.activities.create, {
+                  experimentId: experimentId as Id<"experiments">,
+                  type: "agent_complete",
+                  agentRole: event.agentRole,
+                  agentName: event.agentName,
+                });
+              } else if (event.type === "tool_start" && event.tool) {
+                await convex.mutation(api.activities.create, {
+                  experimentId: experimentId as Id<"experiments">,
+                  type: "tool_use",
+                  tool: event.tool,
+                  agentRole: event.agentRole,
+                  metadata: event.toolInput,
+                });
+              } else if (event.type === "phase_change" && event.phase) {
+                await convex.mutation(api.activities.create, {
+                  experimentId: experimentId as Id<"experiments">,
+                  type: "phase_change",
+                  phase: event.phase,
+                });
+              } else if (event.type === "error") {
+                await convex.mutation(api.activities.create, {
+                  experimentId: experimentId as Id<"experiments">,
+                  type: "error",
+                  error: event.error || "Unknown error",
+                });
+              } else if (event.type === "output" && event.output) {
+                // Track block creation
+                if (event.output.type === "specification") {
+                  await convex.mutation(api.activities.create, {
+                    experimentId: experimentId as Id<"experiments">,
+                    type: "block_created",
+                    agentRole: event.agentRole,
+                    blockType: event.output.title,
+                    metadata: { content: event.output.content },
+                  });
+                }
+              }
+            } catch (activityError) {
+              console.error("Failed to save activity:", activityError);
+              // Continue processing even if activity save fails
+            }
+
             const sseEvent = streamEventToSSE(event);
             if (sseEvent) {
               controller.enqueue(encoder.encode(sseEvent));
