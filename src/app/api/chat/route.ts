@@ -1,15 +1,19 @@
 import { NextRequest } from "next/server";
+import { ExperimentAgent } from "@/lib/agents/experiment-agent";
+import { StreamEvent } from "@/lib/agents/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 300; // 5 minutes max for agent execution
 
-// SSE event types
+// SSE event type for encoding
 type SSEEvent =
   | { type: "agent_start"; agentRole: string; agentName: string }
-  | { type: "text"; content: string }
-  | { type: "tool_use"; toolName: string; input: unknown }
-  | { type: "tool_result"; toolName: string; result: unknown }
-  | { type: "agent_end"; agentRole: string }
+  | { type: "text"; content: string; agentRole?: string }
+  | { type: "tool_start"; tool: string; input?: unknown; agentRole?: string }
+  | { type: "tool_end"; tool: string; agentRole?: string }
+  | { type: "phase_change"; phase: string }
+  | { type: "agent_end"; agentRole: string; agentName?: string }
   | { type: "error"; message: string }
   | { type: "done" };
 
@@ -24,6 +28,63 @@ function createSSEEncoder() {
   };
 }
 
+// Convert StreamEvent to SSEEvent
+function streamEventToSSE(event: StreamEvent): SSEEvent | null {
+  switch (event.type) {
+    case "agent_start":
+      if (!event.agentRole || !event.agentName) return null;
+      return {
+        type: "agent_start",
+        agentRole: event.agentRole,
+        agentName: event.agentName,
+      };
+    case "text":
+      return {
+        type: "text",
+        content: event.content || "",
+        agentRole: event.agentRole,
+      };
+    case "tool_start":
+      if (!event.tool) return null;
+      return {
+        type: "tool_start",
+        tool: event.tool,
+        input: event.toolInput,
+        agentRole: event.agentRole,
+      };
+    case "tool_end":
+      if (!event.tool) return null;
+      return {
+        type: "tool_end",
+        tool: event.tool,
+        agentRole: event.agentRole,
+      };
+    case "phase_change":
+      if (!event.phase) return null;
+      return {
+        type: "phase_change",
+        phase: event.phase,
+      };
+    case "agent_end":
+      if (!event.agentRole) return null;
+      return {
+        type: "agent_end",
+        agentRole: event.agentRole,
+        agentName: event.agentName,
+      };
+    case "error":
+      return {
+        type: "error",
+        message: event.error || "Unknown error",
+      };
+    case "done":
+      return { type: "done" };
+    default:
+      // For output and other events, we don't send to client directly
+      return null;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -36,57 +97,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check for API key
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: "ANTHROPIC_API_KEY is not configured" }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     const encoder = createSSEEncoder();
+    const agent = new ExperimentAgent(experimentId);
 
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          // Send agent start event
-          controller.enqueue(
-            encoder.encode({
-              type: "agent_start",
-              agentRole: "orchestrator",
-              agentName: "Planning Orchestrator",
-            })
-          );
-
-          // TODO: In Commit 9, this will call the actual ExperimentAgent
-          // For now, send a placeholder response
-          const placeholderResponse = `I received your message: "${message}"\n\nThis is a placeholder response. The agent integration will be completed in the next commit.`;
-
-          // Simulate streaming by sending chunks
-          const words = placeholderResponse.split(" ");
-          for (let i = 0; i < words.length; i++) {
-            const chunk = (i > 0 ? " " : "") + words[i];
-            controller.enqueue(
-              encoder.encode({
-                type: "text",
-                content: chunk,
-              })
-            );
-            // Small delay to simulate streaming
-            await new Promise((resolve) => setTimeout(resolve, 50));
+          for await (const event of agent.chat(message)) {
+            const sseEvent = streamEventToSSE(event);
+            if (sseEvent) {
+              controller.enqueue(encoder.encode(sseEvent));
+            }
           }
-
-          // Send agent end event
-          controller.enqueue(
-            encoder.encode({
-              type: "agent_end",
-              agentRole: "orchestrator",
-            })
-          );
-
-          // Send done event
-          controller.enqueue(encoder.encode({ type: "done" }));
-
           controller.close();
         } catch (error) {
+          console.error("Agent error:", error);
           controller.enqueue(
             encoder.encode({
               type: "error",
               message: error instanceof Error ? error.message : "Unknown error",
             })
           );
+          controller.enqueue(encoder.encode({ type: "done" }));
           controller.close();
         }
       },
