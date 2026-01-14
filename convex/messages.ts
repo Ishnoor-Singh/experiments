@@ -31,6 +31,9 @@ export const send = mutation({
   },
 });
 
+// Alias for API routes using ConvexHttpClient
+export const create = send;
+
 export const clear = mutation({
   args: { experimentId: v.id("experiments") },
   handler: async (ctx, args) => {
