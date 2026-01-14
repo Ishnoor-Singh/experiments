@@ -11,6 +11,7 @@ export const ActivityType = v.union(
   v.literal("tool_use"),
   v.literal("phase_change"),
   v.literal("block_created"),
+  v.literal("file_generated"),
   v.literal("error")
 );
 

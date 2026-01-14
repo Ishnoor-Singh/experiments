@@ -55,4 +55,19 @@ export default defineSchema({
     updatedAt: v.number(),
     completedAt: v.optional(v.number()),
   }).index("by_experiment", ["experimentId"]),
+
+  // Generated code files from code generation agents
+  generated_files: defineTable({
+    experimentId: v.id("experiments"),
+    path: v.string(), // e.g., "convex/schema.ts", "src/components/Button.tsx"
+    content: v.string(), // file contents
+    description: v.optional(v.string()), // what this file does
+    language: v.string(), // typescript | javascript | css | json | markdown
+    generatedBy: v.optional(v.string()), // agent role that created this
+    version: v.number(), // version number for tracking changes
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_experiment", ["experimentId"])
+    .index("by_path", ["experimentId", "path"]),
 });

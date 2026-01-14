@@ -9,7 +9,9 @@
  */
 
 import type * as activities from "../activities.js";
+import type * as blocks from "../blocks.js";
 import type * as experiments from "../experiments.js";
+import type * as generated_files from "../generated_files.js";
 import type * as jobs from "../jobs.js";
 import type * as messages from "../messages.js";
 
@@ -21,7 +23,9 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   activities: typeof activities;
+  blocks: typeof blocks;
   experiments: typeof experiments;
+  generated_files: typeof generated_files;
   jobs: typeof jobs;
   messages: typeof messages;
 }>;
