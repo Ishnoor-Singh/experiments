@@ -1,9 +1,9 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Chat API", () => {
-  test("SSE endpoint returns 500 when ANTHROPIC_API_KEY not set", async ({ request }) => {
+  test("returns 500 when ANTHROPIC_API_KEY not set or 200 with job info", async ({ request }) => {
     // When API key is not configured, should return 500
-    // In production, this would stream real agent responses
+    // When configured, triggers Inngest job and returns job info
     const response = await request.post("/api/chat", {
       data: {
         experimentId: "test-experiment-123",
@@ -11,16 +11,20 @@ test.describe("Chat API", () => {
       },
     });
 
-    // Without API key, we expect either 500 (not configured) or 200 (streaming)
-    // In CI without API key, it should return 500
     const status = response.status();
+    const json = await response.json();
+
     if (status === 500) {
-      const json = await response.json();
+      // Without API key, we expect 500
       expect(json.error).toBe("ANTHROPIC_API_KEY is not configured");
+    } else if (status === 200) {
+      // With API key, we expect job info (Inngest triggered)
+      expect(json.success).toBe(true);
+      expect(json.jobId).toBeDefined();
+      expect(json.message).toBe("Agent started in background");
     } else {
-      // If API key is set (local dev), check SSE response
-      expect(status).toBe(200);
-      expect(response.headers()["content-type"]).toContain("text/event-stream");
+      // 400 may occur if experiment doesn't exist in Convex
+      expect(status).toBe(400);
     }
   });
 

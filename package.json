@@ -17,6 +17,7 @@
     "@radix-ui/react-tabs": "^1.1.13",
     "clsx": "^2.1.1",
     "convex": "^1.31.4",
+    "inngest": "^3.49.1",
     "lucide-react": "^0.562.0",
     "nanoid": "^5.1.6",
     "next": "16.1.1",

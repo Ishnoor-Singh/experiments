@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
@@ -10,26 +10,12 @@ import { AgentPanel } from "@/components/experiment/AgentPanel";
 import { NewExperimentDialog } from "@/components/experiment/NewExperimentDialog";
 import { getAllAgentInfos } from "@/lib/agents/agent-configs";
 
-// SSE Event types from the API
-type SSEEvent =
-  | { type: "agent_start"; agentRole: string; agentName: string }
-  | { type: "text"; content: string; agentRole?: string }
-  | { type: "tool_start"; tool: string; input?: unknown; agentRole?: string }
-  | { type: "tool_end"; tool: string; agentRole?: string }
-  | { type: "phase_change"; phase: string }
-  | { type: "agent_end"; agentRole: string; agentName?: string }
-  | { type: "error"; message: string }
-  | { type: "done" };
-
 export default function ExperimentBuilder() {
   const [selectedExperimentId, setSelectedExperimentId] = useState<string | null>(null);
   const [showNewDialog, setShowNewDialog] = useState(false);
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [streamingContent, setStreamingContent] = useState("");
-  const [activeAgent, setActiveAgent] = useState<{ role: string; name: string } | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   const [agentStatuses, setAgentStatuses] = useState<Record<string, "idle" | "working" | "completed">>({});
-
-  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Convex queries
   const experiments = useQuery(api.experiments.list) ?? [];
@@ -38,18 +24,113 @@ export default function ExperimentBuilder() {
     selectedExperimentId ? { experimentId: selectedExperimentId as Id<"experiments"> } : "skip"
   ) ?? [];
 
+  // Subscribe to active job status
+  const activeJob = useQuery(
+    api.jobs.getActiveForExperiment,
+    selectedExperimentId ? { experimentId: selectedExperimentId as Id<"experiments"> } : "skip"
+  );
+
+  // Subscribe to current job if we have one
+  const currentJob = useQuery(
+    api.jobs.get,
+    currentJobId ? { jobId: currentJobId as Id<"jobs"> } : "skip"
+  );
+
+  // Subscribe to activities for agent status updates
+  const activities = useQuery(
+    api.activities.list,
+    selectedExperimentId ? { experimentId: selectedExperimentId as Id<"experiments">, limit: 20 } : "skip"
+  ) ?? [];
+
   const selectedExperiment = experiments.find(e => e._id === selectedExperimentId);
   const currentPhase = selectedExperiment?.currentPhase ?? "requirements";
 
   // Convex mutations
   const createExperiment = useMutation(api.experiments.create);
-  const sendMessage = useMutation(api.messages.send);
+
+  // Update agent statuses based on recent activities
+  useEffect(() => {
+    if (!activities.length) return;
+
+    const newStatuses: Record<string, "idle" | "working" | "completed"> = {};
+
+    // Process activities to determine current agent statuses
+    for (const activity of activities) {
+      if (activity.agentRole) {
+        if (activity.type === "agent_start") {
+          // Only mark as working if this is the most recent activity for this agent
+          if (!newStatuses[activity.agentRole]) {
+            newStatuses[activity.agentRole] = "working";
+          }
+        } else if (activity.type === "agent_complete") {
+          newStatuses[activity.agentRole] = "completed";
+        }
+      }
+    }
+
+    // If there's an active job, mark working agents
+    if (activeJob || (currentJob && (currentJob.status === "pending" || currentJob.status === "running"))) {
+      // Find the most recent agent_start without a corresponding agent_complete
+      const workingAgents = new Set<string>();
+      for (const activity of [...activities].reverse()) {
+        if (activity.agentRole) {
+          if (activity.type === "agent_start" && !workingAgents.has(activity.agentRole)) {
+            newStatuses[activity.agentRole] = "working";
+            workingAgents.add(activity.agentRole);
+          } else if (activity.type === "agent_complete") {
+            workingAgents.add(activity.agentRole);
+          }
+        }
+      }
+    }
+
+    setAgentStatuses(newStatuses);
+  }, [activities, activeJob, currentJob]);
+
+  // Update processing state based on job status
+  useEffect(() => {
+    if (currentJob) {
+      if (currentJob.status === "pending" || currentJob.status === "running") {
+        setIsProcessing(true);
+      } else {
+        setIsProcessing(false);
+        // Clear job ID when complete
+        if (currentJob.status === "completed" || currentJob.status === "failed") {
+          setCurrentJobId(null);
+        }
+      }
+    } else if (activeJob) {
+      setIsProcessing(true);
+      setCurrentJobId(activeJob._id);
+    } else {
+      setIsProcessing(false);
+    }
+  }, [currentJob, activeJob]);
 
   // Get agent infos with status overrides
   const agents = getAllAgentInfos().map(agent => ({
     ...agent,
     status: agentStatuses[agent.role] || agent.status,
   }));
+
+  // Find the active agent from recent activities
+  const activeAgent = (() => {
+    if (!isProcessing) return null;
+    // Find the most recent agent_start without a matching agent_complete
+    const startedAgents = new Map<string, { role: string; name: string }>();
+    const completedAgents = new Set<string>();
+
+    for (const activity of [...activities].reverse()) {
+      if (activity.agentRole) {
+        if (activity.type === "agent_complete") {
+          completedAgents.add(activity.agentRole);
+        } else if (activity.type === "agent_start" && !completedAgents.has(activity.agentRole)) {
+          return { role: activity.agentRole, name: activity.agentName || activity.agentRole };
+        }
+      }
+    }
+    return null;
+  })();
 
   const handleNewExperiment = () => {
     setShowNewDialog(true);
@@ -62,23 +143,10 @@ export default function ExperimentBuilder() {
   };
 
   const handleSendMessage = useCallback(async (message: string) => {
-    if (!selectedExperimentId || isStreaming) return;
+    if (!selectedExperimentId || isProcessing) return;
 
-    // Save user message to Convex
-    await sendMessage({
-      experimentId: selectedExperimentId as Id<"experiments">,
-      role: "user",
-      content: message,
-    });
-
-    // Reset state
-    setIsStreaming(true);
-    setStreamingContent("");
-    setActiveAgent(null);
+    setIsProcessing(true);
     setAgentStatuses({});
-
-    // Create abort controller for cancellation
-    abortControllerRef.current = new AbortController();
 
     try {
       const response = await fetch("/api/chat", {
@@ -90,7 +158,6 @@ export default function ExperimentBuilder() {
           experimentId: selectedExperimentId,
           message,
         }),
-        signal: abortControllerRef.current.signal,
       });
 
       if (!response.ok) {
@@ -98,85 +165,16 @@ export default function ExperimentBuilder() {
         throw new Error(error.error || "Failed to send message");
       }
 
-      const reader = response.body?.getReader();
-      if (!reader) {
-        throw new Error("No response body");
-      }
+      const result = await response.json();
 
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let currentAgentContent = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-
-        // Process complete SSE events
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || ""; // Keep incomplete line in buffer
-
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            try {
-              const event: SSEEvent = JSON.parse(line.slice(6));
-
-              switch (event.type) {
-                case "agent_start":
-                  setActiveAgent({ role: event.agentRole, name: event.agentName });
-                  setAgentStatuses(prev => ({ ...prev, [event.agentRole]: "working" }));
-                  currentAgentContent = "";
-                  break;
-
-                case "text":
-                  currentAgentContent += event.content;
-                  setStreamingContent(currentAgentContent);
-                  break;
-
-                case "agent_end":
-                  // Save the agent's response to Convex
-                  if (currentAgentContent.trim()) {
-                    await sendMessage({
-                      experimentId: selectedExperimentId as Id<"experiments">,
-                      role: "assistant",
-                      content: currentAgentContent.trim(),
-                      agentRole: event.agentRole,
-                      agentName: event.agentName,
-                    });
-                  }
-                  setAgentStatuses(prev => ({ ...prev, [event.agentRole]: "completed" }));
-                  setActiveAgent(null);
-                  setStreamingContent("");
-                  currentAgentContent = "";
-                  break;
-
-                case "error":
-                  console.error("SSE Error:", event.message);
-                  break;
-
-                case "done":
-                  // Stream complete
-                  break;
-              }
-            } catch {
-              console.error("Failed to parse SSE event:", line);
-            }
-          }
-        }
+      if (result.jobId) {
+        setCurrentJobId(result.jobId);
       }
     } catch (error) {
-      if (error instanceof Error && error.name === "AbortError") {
-        console.log("Request aborted");
-      } else {
-        console.error("Chat error:", error);
-      }
-    } finally {
-      setIsStreaming(false);
-      setActiveAgent(null);
-      abortControllerRef.current = null;
+      console.error("Chat error:", error);
+      setIsProcessing(false);
     }
-  }, [selectedExperimentId, isStreaming, sendMessage]);
+  }, [selectedExperimentId, isProcessing]);
 
   // Convert Convex documents to the format expected by components
   const formattedExperiments = experiments.map(exp => ({
@@ -209,8 +207,8 @@ export default function ExperimentBuilder() {
         experimentId={selectedExperimentId}
         messages={formattedMessages}
         onSendMessage={handleSendMessage}
-        isStreaming={isStreaming}
-        streamingContent={streamingContent}
+        isStreaming={isProcessing}
+        streamingContent=""
         activeAgent={activeAgent}
       />
 

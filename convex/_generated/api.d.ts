@@ -8,7 +8,9 @@
  * @module
  */
 
+import type * as activities from "../activities.js";
 import type * as experiments from "../experiments.js";
+import type * as jobs from "../jobs.js";
 import type * as messages from "../messages.js";
 
 import type {
@@ -18,7 +20,9 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  activities: typeof activities;
   experiments: typeof experiments;
+  jobs: typeof jobs;
   messages: typeof messages;
 }>;
 

@@ -42,4 +42,17 @@ export default defineSchema({
     metadata: v.optional(v.any()),
     timestamp: v.number(),
   }).index("by_experiment", ["experimentId"]),
+
+  // Background job tracking
+  jobs: defineTable({
+    experimentId: v.id("experiments"),
+    type: v.string(), // agent_chat
+    status: v.string(), // pending | running | completed | failed
+    input: v.optional(v.any()),
+    result: v.optional(v.any()),
+    error: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    completedAt: v.optional(v.number()),
+  }).index("by_experiment", ["experimentId"]),
 });
