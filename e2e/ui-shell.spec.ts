@@ -7,8 +7,8 @@ test.describe('Experiment Builder UI', () => {
     // Check left sidebar exists with New Experiment button
     await expect(page.getByRole('button', { name: /New Experiment/i })).toBeVisible();
 
-    // Without an experiment selected, center shows empty state
-    await expect(page.getByText('Select or create an experiment to start')).toBeVisible();
+    // Without an experiment selected, center shows welcome message
+    await expect(page.getByRole('heading', { name: 'Welcome to Experiment Builder' })).toBeVisible();
 
     // Check right status panel exists
     await expect(page.getByRole('heading', { name: 'Status' })).toBeVisible();
@@ -17,54 +17,46 @@ test.describe('Experiment Builder UI', () => {
   test('shows empty state when no experiments', async ({ page }) => {
     await page.goto('/');
 
-    // Check that sidebar exists
-    const sidebar = page.locator('.w-64.border-r');
-    await expect(sidebar).toBeVisible();
+    // Check that sidebar exists by looking for the Experiments header
+    await expect(page.getByText('Experiments').first()).toBeVisible();
   });
 
   test('displays agent phase sections', async ({ page }) => {
     await page.goto('/');
 
     // Check that planning, code generation, and testing sections exist
-    // Using role selectors for headings to avoid matching agent names
-    const agentPanel = page.locator('[class*="w-72"]');
-    await expect(agentPanel).toBeVisible();
-
-    // Look for phase category headers (h3 elements)
-    await expect(agentPanel.getByRole('heading', { name: 'Planning' })).toBeVisible();
-    await expect(agentPanel.getByRole('heading', { name: 'Code Generation' })).toBeVisible();
-    await expect(agentPanel.getByRole('heading', { name: 'Testing' })).toBeVisible();
+    // Look for phase category headers (h3 elements) within the Agents tab
+    await expect(page.getByRole('heading', { name: 'Planning' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Code Generation' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Testing' })).toBeVisible();
   });
 
   test('displays planning agents in agent panel', async ({ page }) => {
     await page.goto('/');
 
-    // Check planning agents are listed in the right panel
-    const agentPanel = page.locator('[class*="w-72"]');
-    await expect(agentPanel.getByText('Planning Orchestrator')).toBeVisible();
-    await expect(agentPanel.getByText('User Interview Agent')).toBeVisible();
-    await expect(agentPanel.getByText('UX Design Agent')).toBeVisible();
-    await expect(agentPanel.getByText('Principal Developer Agent')).toBeVisible();
+    // Check planning agents are listed
+    await expect(page.getByText('Planning Orchestrator')).toBeVisible();
+    await expect(page.getByText('User Interview Agent')).toBeVisible();
+    await expect(page.getByText('UX Design Agent')).toBeVisible();
+    await expect(page.getByText('Principal Developer Agent')).toBeVisible();
   });
 
   test('displays code generation agents', async ({ page }) => {
     await page.goto('/');
 
-    // Check codegen agents are listed in the right panel
-    const agentPanel = page.locator('[class*="w-72"]');
-    await expect(agentPanel.getByText('Code Generation Orchestrator')).toBeVisible();
-    await expect(agentPanel.getByText('Schema Generator Agent')).toBeVisible();
-    await expect(agentPanel.getByText('Component Generator Agent')).toBeVisible();
+    // Check codegen agents are listed
+    await expect(page.getByText('Code Generation Orchestrator')).toBeVisible();
+    await expect(page.getByText('Schema Generator Agent')).toBeVisible();
+    await expect(page.getByText('Component Generator Agent')).toBeVisible();
   });
 
   test('displays testing agents', async ({ page }) => {
     await page.goto('/');
 
-    // Check testing agents are listed in the right panel
-    const agentPanel = page.locator('[class*="w-72"]');
-    await expect(agentPanel.getByText('Test Generator Agent')).toBeVisible();
-    await expect(agentPanel.getByText('Evaluator Agent')).toBeVisible();
-    await expect(agentPanel.getByText('Debugger Agent')).toBeVisible();
+    // Check testing agents are listed
+    await expect(page.getByText('Test Generator Agent')).toBeVisible();
+    await expect(page.getByText('Evaluator Agent')).toBeVisible();
+    await expect(page.getByText('Debugger Agent')).toBeVisible();
   });
 
   test('chat input appears when experiment is selected', async ({ page }) => {
@@ -122,11 +114,15 @@ test.describe('Experiment Builder UI', () => {
   test('displays activity feed tab', async ({ page }) => {
     await page.goto('/');
 
-    // Check that both tabs are visible
+    // Check that all four tabs are visible
     const agentsTab = page.getByRole('tab', { name: 'Agents' });
+    const specsTab = page.getByRole('tab', { name: 'Specs' });
+    const filesTab = page.getByRole('tab', { name: 'Files' });
     const activityTab = page.getByRole('tab', { name: 'Activity' });
 
     await expect(agentsTab).toBeVisible();
+    await expect(specsTab).toBeVisible();
+    await expect(filesTab).toBeVisible();
     await expect(activityTab).toBeVisible();
 
     // Agents tab should be active by default
@@ -142,5 +138,33 @@ test.describe('Experiment Builder UI', () => {
 
     // Activity feed should show empty state
     await expect(page.getByText('Select an experiment to view activities')).toBeVisible();
+  });
+
+  test('displays specs tab with empty state', async ({ page }) => {
+    await page.goto('/');
+
+    // Click on Specs tab
+    const specsTab = page.getByRole('tab', { name: 'Specs' });
+    await specsTab.click();
+
+    // Specs tab should be active
+    await expect(specsTab).toHaveAttribute('aria-selected', 'true');
+
+    // Should show empty state since no experiment is selected
+    await expect(page.getByText('Select an experiment to view specifications')).toBeVisible();
+  });
+
+  test('displays files tab with empty state', async ({ page }) => {
+    await page.goto('/');
+
+    // Click on Files tab
+    const filesTab = page.getByRole('tab', { name: 'Files' });
+    await filesTab.click();
+
+    // Files tab should be active
+    await expect(filesTab).toHaveAttribute('aria-selected', 'true');
+
+    // Should show empty state since no experiment is selected
+    await expect(page.getByText('Select an experiment to view generated files')).toBeVisible();
   });
 });
