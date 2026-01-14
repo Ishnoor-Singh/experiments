@@ -9,7 +9,7 @@ Building a multi-agent web app generator in `/home/ishnoor/dev/experiments` that
 ## Architecture Source
 Ported from `/home/ishnoor/dev/SuperApp` planning agents system, adapted for end-to-end code generation with Convex database.
 
-## Completed Commits (1-10)
+## Completed Commits (1-11)
 
 | Commit | Description | Key Files |
 |--------|-------------|-----------|
@@ -23,36 +23,54 @@ Ported from `/home/ishnoor/dev/SuperApp` planning agents system, adapted for end
 | 8 | SSE Chat Endpoint | `src/app/api/chat/route.ts` |
 | 9 | Connect Chat to Agent | Updated `page.tsx` with SSE handling, agent status updates |
 | 10 | Agent Status & Activities Tracking | `convex/activities.ts`, `ActivityFeed.tsx`, updated `AgentPanel.tsx` with tabs |
+| 11 | Inngest Background Jobs | `src/lib/inngest/`, `convex/jobs.ts`, Vercel deployment ready |
 
 ## Test Status
 - **39 unit tests** passing (`npm run test`)
 - **13 e2e tests** passing (`npm run test:e2e`)
 
-## Remaining Work (Commits 11-21)
+## Deployment Architecture
 
-### ✅ Commit 10: Agent Status & Activities Tracking (COMPLETED)
-- ✅ Store agent activities in Convex
-- ✅ Show activity feed in UI
-- ✅ Tabs for Agents/Activity views
+### Inngest Integration (Commit 11)
+The app now uses Inngest for background job processing to work within Vercel's timeout limits:
+- **API route** (`/api/chat`) creates a job in Convex and triggers Inngest
+- **Inngest function** (`agent-chat`) runs the agent in the background (no timeout)
+- **UI** subscribes to Convex for real-time updates (jobs, activities, messages)
+- **Job status**: pending → running → completed/failed
 
-### Commit 11: Block Storage & Spec Viewer
+### Environment Variables
+```bash
+# Convex
+NEXT_PUBLIC_CONVEX_URL=https://beloved-chinchilla-203.convex.cloud
+
+# Anthropic (required for agents)
+ANTHROPIC_API_KEY=sk-ant-...
+
+# Inngest (for background jobs)
+INNGEST_EVENT_KEY=...
+INNGEST_SIGNING_KEY=...
+```
+
+## Remaining Work (Commits 12-21)
+
+### Commit 12: Block Storage & Spec Viewer
 - Store planning blocks (entities, endpoints, screens) in Convex
 - Add spec viewer panel to UI
 
-### Commit 12-14: Code Generation Agents
+### Commit 13-15: Code Generation Agents
 - `code-orchestrator` - coordinates code generation
 - `schema-generator` - generates Convex schema from specs
 - `api-generator` - generates API routes
 - `component-generator` - generates React components
 - `integration-agent` - wires everything together
 
-### Commit 15-17: Testing Framework
+### Commit 16-18: Testing Framework
 - `test-generator` - generates test files
 - `evaluator` - scores generated code
 - Test runner infrastructure
 
-### Commit 18-20: Iteration Loop
-- Evaluation -> Fix -> Re-evaluate cycle
+### Commit 19-20: Iteration Loop
+- Evaluation → Fix → Re-evaluate cycle
 - `debugger` agent for fixing issues
 - Convergence detection
 
@@ -64,12 +82,13 @@ Ported from `/home/ishnoor/dev/SuperApp` planning agents system, adapted for end
 
 ### Convex
 - Deployment: `https://beloved-chinchilla-203.convex.cloud`
-- Deploy key in `.env.local` (ask user if needed)
+- Deploy key: `dev:beloved-chinchilla-203|...`
 - Run `CONVEX_DEPLOY_KEY="..." npx convex deploy --cmd 'echo deployed'` to deploy schema changes
 
-### Environment Variables Needed
-- `NEXT_PUBLIC_CONVEX_URL` - Convex deployment URL
-- `ANTHROPIC_API_KEY` - For agent LLM calls (not in repo, user must provide)
+### Inngest
+- Dashboard: https://app.inngest.com
+- Event key and signing key in `.env.local`
+- Webhook endpoint: `/api/inngest`
 
 ## Commands
 ```bash
@@ -84,12 +103,12 @@ npm run test:e2e     # Run e2e tests (playwright)
 - Orchestrator delegates to sub-agents
 - Skill files (`.skill.md`) define agent prompts
 - Block tools create structured specs (entities, endpoints, screens, etc.)
-- SSE streaming for real-time responses
+- Background job execution via Inngest
 
 ## UI Structure
 - **Left sidebar**: Experiment list, create new
-- **Center**: Chat interface with streaming
-- **Right panel**: Agent status (idle/working/completed)
+- **Center**: Chat interface with job status
+- **Right panel**: Agent status (idle/working/completed) + Activity feed
 
 ## Resume Instructions
 To continue this work, tell the new agent:
@@ -97,12 +116,12 @@ To continue this work, tell the new agent:
 ```
 Continue work on the multi-agent experiment builder in /home/ishnoor/dev/experiments
 
-Read HANDOFF.md for full context. The project is on branch feature/multi-agent-builder with 10 commits completed.
+Read HANDOFF.md for full context. The project is on branch feature/multi-agent-builder with 11 commits completed.
 
-Next step: Commit 11 - Block Storage & Spec Viewer
+Next step: Commit 12 - Block Storage & Spec Viewer
 - Store planning blocks (entities, endpoints, screens) in Convex
 - Add spec viewer panel to UI showing structured specs from agents
-- Update experiment-agent.ts to save blocks to Convex
+- Update Inngest function to save blocks to Convex
 
 Run tests after each commit: npm run test && npm run test:e2e
 ```
