@@ -17,13 +17,20 @@ export function useResizable({
   storageKey,
   side,
 }: UseResizableOptions) {
-  const [width, setWidth] = useState(() => {
-    if (typeof window !== "undefined" && storageKey) {
+  // Always start with defaultWidth to avoid hydration mismatch
+  const [width, setWidth] = useState(defaultWidth);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Load from localStorage after mount (client-side only)
+  useEffect(() => {
+    if (storageKey && !isInitialized) {
       const stored = localStorage.getItem(storageKey);
-      if (stored) return Math.max(minWidth, Math.min(maxWidth, parseInt(stored, 10)));
+      if (stored) {
+        setWidth(Math.max(minWidth, Math.min(maxWidth, parseInt(stored, 10))));
+      }
+      setIsInitialized(true);
     }
-    return defaultWidth;
-  });
+  }, [storageKey, minWidth, maxWidth, isInitialized]);
 
   const [isResizing, setIsResizing] = useState(false);
   const startXRef = useRef(0);

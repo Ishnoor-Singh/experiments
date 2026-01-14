@@ -3,9 +3,12 @@
 import { useState, useEffect } from "react";
 
 export function useMediaQuery(query: string): boolean {
+  // Always start with false to avoid hydration mismatch
   const [matches, setMatches] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const mediaQuery = window.matchMedia(query);
     setMatches(mediaQuery.matches);
 
