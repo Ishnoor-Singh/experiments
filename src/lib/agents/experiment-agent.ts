@@ -382,29 +382,36 @@ Use the delegate_to_agent tool to engage specialized agents.`;
 
     const tools = getToolsForRole(role);
 
-    const systemPrompt = `${skillContent}
+    // Put constraints AFTER the task so they're closer to model attention
+    const systemPrompt = `You are a specialized agent. Your ONLY job is to call tools.
 
 ## Your Task
 ${task}
 
-${context ? `## Additional Context\n${context}` : ''}
+${context ? `## Context\n${context}` : ''}
 
-## Instructions
-Complete your assigned task using the tools available to you.
-Create structured blocks using the define_* tools.
-Be thorough and complete.`;
+## Your Process
+${skillContent}
+
+## CRITICAL CONSTRAINTS
+- You MUST use tools to complete your task
+- DO NOT output explanatory text - only call tools
+- Follow the SOP steps exactly in order
+- Stop when the SOP is complete`;
 
     let currentMessages: Anthropic.MessageParam[] = [
       { role: 'user', content: `Please complete this task: ${task}` },
     ];
 
-    // Sub-agent loop
+    // Sub-agent loop - force tool use for deterministic output
     for (let iteration = 0; iteration < 25; iteration++) {
       const stream = this.client.messages.stream({
         model: getModelId(config.model),
         max_tokens: 8192,
         system: systemPrompt,
         tools: tools.length > 0 ? tools : undefined,
+        // Force tool use - agents must output via tools, not free-form text
+        tool_choice: tools.length > 0 ? { type: 'any' } : undefined,
         messages: currentMessages,
       });
 
@@ -448,23 +455,43 @@ Be thorough and complete.`;
 
           yield { type: 'tool_start', tool: toolName, toolInput, agentRole: role };
 
-          // For planning tools, we just record the block data
-          // In a full implementation, this would store to the database
-          const output = this.addOutput(
-            role,
-            'specification',
-            `${toolName}: ${toolInput.name || toolInput.title || 'Block'}`,
-            JSON.stringify(toolInput, null, 2),
-            'json'
-          );
+          // Handle delegate_to_agent by actually spawning the sub-agent
+          if (toolName === 'delegate_to_agent') {
+            const agentRole = (toolInput.agent || toolInput.agent_role) as AgentRole;
+            const delegatedTask = toolInput.task as string;
+            const delegatedContext = toolInput.context as string | undefined;
 
-          yield { type: 'output', output, agentRole: role };
+            let agentResponse = '';
+            for await (const event of this.runSubAgent(agentRole, delegatedTask, delegatedContext)) {
+              yield event;
+              if (event.type === 'text') {
+                agentResponse += event.content;
+              }
+            }
 
-          toolResults.push({
-            type: 'tool_result',
-            tool_use_id: block.id,
-            content: JSON.stringify({ success: true, blockId: output.agentId }),
-          });
+            toolResults.push({
+              type: 'tool_result',
+              tool_use_id: block.id,
+              content: JSON.stringify({ success: true, response: agentResponse.slice(0, 500) }),
+            });
+          } else {
+            // For other planning tools, record the block data
+            const output = this.addOutput(
+              role,
+              'specification',
+              `${toolName}: ${toolInput.name || toolInput.title || 'Block'}`,
+              JSON.stringify(toolInput, null, 2),
+              'json'
+            );
+
+            yield { type: 'output', output, agentRole: role };
+
+            toolResults.push({
+              type: 'tool_result',
+              tool_use_id: block.id,
+              content: JSON.stringify({ success: true, blockId: output.agentId }),
+            });
+          }
 
           yield { type: 'tool_end', tool: toolName, agentRole: role };
         }
