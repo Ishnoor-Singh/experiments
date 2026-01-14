@@ -1,0 +1,60 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [active]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - navigation [ref=e7]:
+            - button "previous" [disabled] [ref=e8]:
+              - img "previous" [ref=e9]
+            - generic [ref=e11]:
+              - generic [ref=e12]: 1/
+              - text: "3"
+            - button "next" [ref=e13] [cursor=pointer]:
+              - img "next" [ref=e14]
+          - img
+        - generic [ref=e16]:
+          - generic [ref=e17]:
+            - img [ref=e18]
+            - generic "Latest available version is detected (16.1.1)." [ref=e20]: Next.js 16.1.1
+            - generic [ref=e21]: Turbopack
+          - img
+      - dialog "Runtime Error" [ref=e23]:
+        - generic [ref=e26]:
+          - generic [ref=e27]:
+            - generic [ref=e28]:
+              - generic [ref=e30]: Runtime Error
+              - generic [ref=e31]:
+                - button "Copy Error Info" [ref=e32] [cursor=pointer]:
+                  - img [ref=e33]
+                - button "No related documentation found" [disabled] [ref=e35]:
+                  - img [ref=e36]
+                - button "Attach Node.js inspector" [ref=e38] [cursor=pointer]:
+                  - img [ref=e39]
+            - generic [ref=e48]: "[CONVEX Q(experiments:list)] [Request ID: 2ebea15b4d665edc] Server Error Could not find public function for 'experiments:list'. Did you forget to run `npx convex dev` or `npx convex deploy`? Called by client"
+          - generic [ref=e51]:
+            - paragraph [ref=e52]:
+              - text: Call Stack
+              - generic [ref=e53]: "22"
+            - button "Show 22 ignore-listed frame(s)" [ref=e54] [cursor=pointer]:
+              - text: Show 22 ignore-listed frame(s)
+              - img [ref=e55]
+        - generic [ref=e57]: "1"
+        - generic [ref=e58]: "2"
+    - generic [ref=e63] [cursor=pointer]:
+      - button "Open Next.js Dev Tools" [ref=e64]:
+        - img [ref=e65]
+      - generic [ref=e68]:
+        - button "Open issues overlay" [ref=e69]:
+          - generic [ref=e70]:
+            - generic [ref=e71]: "2"
+            - generic [ref=e72]: "3"
+          - generic [ref=e73]:
+            - text: Issue
+            - generic [ref=e74]: s
+        - button "Collapse issues badge" [ref=e75]:
+          - img [ref=e76]
+  - 'heading "Application error: a client-side exception has occurred while loading localhost (see the browser console for more information)." [level=2] [ref=e80]'
+```
