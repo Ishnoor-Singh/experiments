@@ -4,6 +4,32 @@ import { ConvexHttpClient } from "convex/browser";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 
+// Mapping from tool names to layer and block type
+const toolToBlockInfo: Record<string, { layer: string; blockType: string }> = {
+  // Data layer
+  define_entity: { layer: "data", blockType: "entity" },
+  define_relationship: { layer: "data", blockType: "relationship" },
+  define_computed_field: { layer: "data", blockType: "computed_field" },
+  define_index: { layer: "data", blockType: "index" },
+  // API layer
+  define_endpoint: { layer: "api", blockType: "endpoint" },
+  // Workflow layer
+  define_workflow: { layer: "workflow", blockType: "workflow" },
+  // UX layer
+  define_screen: { layer: "ux", blockType: "screen" },
+  define_component: { layer: "ux", blockType: "component" },
+  define_design_tokens: { layer: "ux", blockType: "design_tokens" },
+  define_user_flow: { layer: "ux", blockType: "user_flow" },
+  // Infrastructure layer
+  define_auth: { layer: "infra", blockType: "auth" },
+  define_role: { layer: "infra", blockType: "role" },
+  define_deployment: { layer: "infra", blockType: "deployment" },
+  // Requirements layer
+  define_requirement: { layer: "requirements", blockType: "requirement" },
+  define_persona: { layer: "requirements", blockType: "persona" },
+  define_user_story: { layer: "requirements", blockType: "user_story" },
+};
+
 // Define event types
 type AgentChatEvent = {
   name: "agent/chat";
@@ -68,6 +94,7 @@ export const agentChat = inngest.createFunction(
                 agentName: event.agentName,
               });
             } else if (event.type === "tool_start" && event.tool) {
+              // Save activity for tool use
               await convex.mutation(api.activities.create, {
                 experimentId: experimentId as Id<"experiments">,
                 type: "tool_use",
@@ -75,6 +102,59 @@ export const agentChat = inngest.createFunction(
                 agentRole: event.agentRole,
                 metadata: event.toolInput,
               });
+
+              // If this is a block-creating tool, save the block to Convex
+              const blockInfo = toolToBlockInfo[event.tool];
+              if (blockInfo && event.toolInput) {
+                try {
+                  const blockId = await convex.mutation(api.blocks.create, {
+                    experimentId: experimentId as Id<"experiments">,
+                    layer: blockInfo.layer,
+                    blockType: blockInfo.blockType,
+                    data: event.toolInput,
+                    createdBy: event.agentRole || lastAgentRole,
+                  });
+
+                  // Also track block creation in activities
+                  const toolInput = event.toolInput as { name?: string; title?: string };
+                  await convex.mutation(api.activities.create, {
+                    experimentId: experimentId as Id<"experiments">,
+                    type: "block_created",
+                    agentRole: event.agentRole || lastAgentRole,
+                    blockType: blockInfo.blockType,
+                    blockId: blockId,
+                    metadata: { layer: blockInfo.layer, name: toolInput.name || toolInput.title || blockInfo.blockType },
+                  });
+                } catch (blockError) {
+                  console.error("Failed to save block:", blockError);
+                }
+              }
+
+              // If this is a file generation tool, save the file to Convex
+              if (event.tool === "generate_file" && event.toolInput) {
+                try {
+                  const fileInput = event.toolInput as { path?: string; content?: string; description?: string };
+                  if (fileInput.path && fileInput.content) {
+                    await convex.mutation(api.generated_files.upsert, {
+                      experimentId: experimentId as Id<"experiments">,
+                      path: fileInput.path,
+                      content: fileInput.content,
+                      description: fileInput.description,
+                      generatedBy: event.agentRole || lastAgentRole,
+                    });
+
+                    // Track file generation in activities
+                    await convex.mutation(api.activities.create, {
+                      experimentId: experimentId as Id<"experiments">,
+                      type: "file_generated",
+                      agentRole: event.agentRole || lastAgentRole,
+                      metadata: { path: fileInput.path, description: fileInput.description },
+                    });
+                  }
+                } catch (fileError) {
+                  console.error("Failed to save generated file:", fileError);
+                }
+              }
             } else if (event.type === "phase_change" && event.phase) {
               await convex.mutation(api.activities.create, {
                 experimentId: experimentId as Id<"experiments">,
@@ -103,11 +183,11 @@ export const agentChat = inngest.createFunction(
                 type: event.output.type,
                 content: event.output.content || event.output.title || "",
               });
-            } else if (event.type === "text" && event.text) {
+            } else if (event.type === "text" && event.content) {
               // Collect text outputs
               outputs.push({
                 type: "text",
-                content: event.text,
+                content: event.content,
               });
             }
           } catch (activityError) {
@@ -156,11 +236,12 @@ export const agentChat = inngest.createFunction(
 
     // Mark job as complete
     await step.run("mark-job-complete", async () => {
+      const jobError = "error" in result ? result.error : undefined;
       await convex.mutation(api.jobs.updateStatus, {
         jobId: jobId as Id<"jobs">,
         status: result.success ? "completed" : "failed",
         result: result.success ? { outputCount: result.outputs.length } : undefined,
-        error: result.success ? undefined : result.error,
+        error: result.success ? undefined : jobError,
       });
     });
 
