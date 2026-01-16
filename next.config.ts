@@ -6,7 +6,8 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: "/builder/:path*",
+        // Apply to ALL routes for full cross-origin isolation
+        source: "/:path*",
         headers: [
           {
             key: "Cross-Origin-Opener-Policy",
@@ -14,7 +15,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: "Cross-Origin-Embedder-Policy",
-            value: "require-corp",
+            value: "credentialless",
           },
         ],
       },

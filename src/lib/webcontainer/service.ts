@@ -5,9 +5,37 @@ let webcontainerInstance: WebContainer | null = null;
 let bootPromise: Promise<WebContainer> | null = null;
 
 /**
+ * Check if the browser supports cross-origin isolation required for WebContainers
+ */
+export function checkCrossOriginIsolation(): { supported: boolean; reason?: string } {
+  if (typeof window === "undefined") {
+    return { supported: false, reason: "Not in browser environment" };
+  }
+
+  if (!("crossOriginIsolated" in window)) {
+    return { supported: false, reason: "Browser does not support crossOriginIsolated" };
+  }
+
+  if (!window.crossOriginIsolated) {
+    return {
+      supported: false,
+      reason: "Page is not cross-origin isolated. Ensure COOP and COEP headers are set.",
+    };
+  }
+
+  return { supported: true };
+}
+
+/**
  * Boot or get the singleton WebContainer instance
  */
 export async function bootWebContainer(): Promise<WebContainer> {
+  // Check cross-origin isolation first
+  const isolation = checkCrossOriginIsolation();
+  if (!isolation.supported) {
+    throw new Error(`WebContainer cannot start: ${isolation.reason}`);
+  }
+
   if (webcontainerInstance) {
     return webcontainerInstance;
   }
