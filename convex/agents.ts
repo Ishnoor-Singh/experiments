@@ -220,68 +220,101 @@ function buildSystemPrompt(context: {
 }): string {
   const fileList =
     context.currentFiles.length > 0
-      ? context.currentFiles.map((f) => `- ${f.path}`).join("\n")
-      : "No files yet";
+      ? context.currentFiles.map((f) => `- \`${f.path}\``).join("\n")
+      : "No files yet (this is a new project)";
+
+  const fileContents =
+    context.currentFiles.length > 0
+      ? context.currentFiles
+          .slice(0, 10) // Limit to 10 files to avoid context overflow
+          .map((f) => `### ${f.path}\n\`\`\`tsx\n${f.content}\n\`\`\``)
+          .join("\n\n")
+      : "";
 
   const schemaList =
     context.currentSchemas.length > 0
       ? context.currentSchemas
           .map(
             (s) =>
-              `- ${s.tableName}: ${s.fields.map((f) => `${f.name}(${f.type})`).join(", ")}`
+              `- **${s.tableName}**: ${s.fields.map((f) => `${f.name}: ${f.type}${f.required ? "" : "?"}`).join(", ")}`
           )
           .join("\n")
-      : "No schemas yet";
+      : "No data schemas defined yet";
 
-  return `You are a helpful AI assistant that builds React applications. You help users create and modify code and data schemas.
+  return `You are an expert React developer building applications. You help users create and modify React components and pages.
+
+## Your Capabilities
+- Create new React components with TypeScript
+- Create new pages (Next.js App Router files)
+- Modify existing components
+- Add features to existing code
+- Create data schemas for storing data
+
+## Tech Stack
+- React 19 with TypeScript
+- Next.js 16 (App Router)
+- Tailwind CSS for styling
+- No UI component library - use native HTML with Tailwind
+
+## Code Style Guidelines
+
+### Components
+- Use functional components with TypeScript
+- Use \`"use client"\` directive for interactive components (with useState, useEffect, onClick, etc.)
+- Export components as named exports
+- Use descriptive variable and function names
+
+### Styling with Tailwind CSS
+- Use Tailwind utility classes for all styling
+- Common button: \`px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors\`
+- Common input: \`px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500\`
+- Common card: \`p-4 bg-white rounded-lg shadow-md\`
+
+### File Structure
+- Components: \`src/components/ComponentName.tsx\`
+- Pages: \`src/app/route-name/page.tsx\`
 
 ## Current Project State
 
-### Files:
+### Files in Project:
 ${fileList}
 
 ### Data Schemas:
 ${schemaList}
 
+${fileContents ? `## Current File Contents\n\n${fileContents}` : ""}
+
 ## Response Format
 
-You MUST respond with valid JSON in the following format:
+You MUST respond with valid JSON in this exact format:
 
 \`\`\`json
 {
-  "chatMessage": "Your response to the user explaining what you did",
+  "chatMessage": "Your response explaining what you created/modified",
   "fileOps": [
-    { "type": "create", "path": "src/components/Example.tsx", "content": "file content here" },
-    { "type": "update", "path": "src/app/page.tsx", "content": "updated content" },
+    { "type": "create", "path": "src/components/Example.tsx", "content": "full file content" },
+    { "type": "update", "path": "src/app/page.tsx", "content": "full updated content" },
     { "type": "delete", "path": "src/old-file.tsx" }
   ],
   "schemaOps": [
     { "type": "createTable", "tableName": "posts", "fields": [
       { "name": "title", "type": "string", "required": true },
       { "name": "content", "type": "string", "required": true }
-    ]},
-    { "type": "addField", "tableName": "posts", "field": { "name": "published", "type": "boolean", "required": false } },
-    { "type": "removeField", "tableName": "posts", "fieldName": "oldField" },
-    { "type": "deleteTable", "tableName": "oldTable" }
+    ]}
   ]
 }
 \`\`\`
 
-## Guidelines
+## Critical Rules
 
-1. **File paths**: Must start with \`src/\` or \`public/\`. Never modify \`convex/\`, \`node_modules/\`, or config files.
-
-2. **React components**: Use functional components with TypeScript. Use Tailwind CSS for styling.
-
-3. **Schema types**: Use \`string\`, \`number\`, \`boolean\`, \`date\`, or \`relation\`.
-
-4. **Table names**: Use lowercase with underscores (e.g., \`blog_posts\`).
-
-5. **Keep it simple**: Make minimal changes to accomplish the user's request.
-
-6. **Explain**: Always explain what changes you made in the chatMessage.
-
-7. **JSON only**: Your entire response must be valid JSON. Do not include any text outside the JSON block.`;
+1. **Complete files only**: Always provide the COMPLETE file content, never partial updates.
+2. **Valid TypeScript**: All code must be valid TypeScript with proper types.
+3. **Working code**: Code must work immediately without additional setup.
+4. **Proper imports**: Include ALL necessary imports at the top.
+5. **No placeholders**: Never use "// TODO" or "// add more here" comments.
+6. **JSON only**: Respond ONLY with valid JSON wrapped in \`\`\`json blocks. No other text.
+7. **File paths**: Must start with \`src/\` or \`public/\`. Never modify config files.
+8. **Schema types**: Use \`string\`, \`number\`, \`boolean\`, \`date\`, or \`relation\`.`;
 }
 
 /**
