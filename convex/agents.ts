@@ -271,8 +271,8 @@ function buildSystemPrompt(context: {
 - Common card: \`p-4 bg-white rounded-lg shadow-md\`
 
 ### File Structure
-- Components: \`src/components/ComponentName.tsx\`
-- Pages: \`src/app/route-name/page.tsx\`
+- Components: \`/components/ComponentName.tsx\`
+- Pages: \`/app/route-name/page.tsx\` (use \`/app/page.tsx\` for the home page)
 
 ## Current Project State
 
@@ -292,9 +292,9 @@ You MUST respond with valid JSON in this exact format:
 {
   "chatMessage": "Your response explaining what you created/modified",
   "fileOps": [
-    { "type": "create", "path": "src/components/Example.tsx", "content": "full file content" },
-    { "type": "update", "path": "src/app/page.tsx", "content": "full updated content" },
-    { "type": "delete", "path": "src/old-file.tsx" }
+    { "type": "create", "path": "/components/Example.tsx", "content": "full file content" },
+    { "type": "update", "path": "/app/page.tsx", "content": "full updated content" },
+    { "type": "delete", "path": "/components/old-file.tsx" }
   ],
   "schemaOps": [
     { "type": "createTable", "tableName": "posts", "fields": [
@@ -313,8 +313,9 @@ You MUST respond with valid JSON in this exact format:
 4. **Proper imports**: Include ALL necessary imports at the top.
 5. **No placeholders**: Never use "// TODO" or "// add more here" comments.
 6. **JSON only**: Respond ONLY with valid JSON wrapped in \`\`\`json blocks. No other text.
-7. **File paths**: Must start with \`src/\` or \`public/\`. Never modify config files.
-8. **Schema types**: Use \`string\`, \`number\`, \`boolean\`, \`date\`, or \`relation\`.`;
+7. **File paths**: Use paths like \`/app/page.tsx\`, \`/components/MyComponent.tsx\`, \`/lib/utils.ts\`. Never modify config files (package.json, tsconfig.json, etc.).
+8. **Schema types**: Use \`string\`, \`number\`, \`boolean\`, \`date\`, or \`relation\`.
+9. **Update existing files**: When modifying the main page, update \`/app/page.tsx\` (not create a new file). Check the existing files list above.`;
 }
 
 /**
