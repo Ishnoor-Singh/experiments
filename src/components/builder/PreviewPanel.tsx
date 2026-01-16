@@ -14,13 +14,13 @@ function SyncingOverlay({ status }: { status: SystemStatus }) {
   }
 
   return (
-    <div className="absolute top-0 left-0 right-0 z-10 bg-amber-500/90 text-black px-4 py-2 flex items-center gap-3 shadow-lg">
-      <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
-      <span className="font-medium text-sm">
-        {status.state === "syncing" && "Syncing changes..."}
+    <div className="absolute top-0 left-0 right-0 z-10 bg-amber-500/90 text-black px-3 md:px-4 py-2 flex items-center gap-2 md:gap-3 shadow-lg">
+      <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin shrink-0" />
+      <span className="font-medium text-xs md:text-sm">
+        {status.state === "syncing" && "Syncing..."}
         {status.state === "compiling" && "Compiling..."}
       </span>
-      <span className="text-xs opacity-75">Preview will update automatically</span>
+      <span className="text-xs opacity-75 hidden sm:inline">Preview will update automatically</span>
     </div>
   );
 }

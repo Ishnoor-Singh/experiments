@@ -41,11 +41,11 @@ export function StatusBar({ status, projectName }: StatusBarProps) {
   const statusDisplay = getStatusDisplay();
 
   return (
-    <div className="h-12 bg-zinc-800 border-b border-zinc-700 flex items-center px-4 gap-4">
+    <div className="h-12 bg-zinc-800 border-b border-zinc-700 flex items-center px-3 md:px-4 gap-2 md:gap-4">
       {/* Back link */}
       <Link
         href="/builder"
-        className="text-zinc-400 hover:text-white transition-colors"
+        className="text-zinc-400 hover:text-white transition-colors shrink-0"
       >
         <svg
           className="w-5 h-5"
@@ -62,21 +62,21 @@ export function StatusBar({ status, projectName }: StatusBarProps) {
         </svg>
       </Link>
 
-      {/* Project name */}
-      <span className="font-medium">{projectName}</span>
+      {/* Project name - truncate on mobile */}
+      <span className="font-medium truncate max-w-[120px] md:max-w-none">{projectName}</span>
 
-      {/* Divider */}
-      <div className="h-4 w-px bg-zinc-700" />
+      {/* Divider - hide on small screens */}
+      <div className="h-4 w-px bg-zinc-700 hidden sm:block" />
 
       {/* Status indicator */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 shrink-0">
         <div className={`w-2 h-2 rounded-full ${statusDisplay.color}`} />
-        <span className="text-sm text-zinc-400">{statusDisplay.text}</span>
+        <span className="text-sm text-zinc-400 hidden sm:inline">{statusDisplay.text}</span>
       </div>
 
-      {/* Error message */}
+      {/* Error message - show truncated on mobile */}
       {status.state === "error" && (
-        <span className="text-sm text-red-400 truncate flex-1">
+        <span className="text-xs md:text-sm text-red-400 truncate flex-1 min-w-0">
           {status.message}
         </span>
       )}

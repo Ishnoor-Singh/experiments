@@ -35,7 +35,7 @@ export function ChatInput({
   );
 
   return (
-    <div className="p-4 border-t border-zinc-800">
+    <div className="p-3 md:p-4 border-t border-zinc-800">
       <div className="relative">
         <textarea
           value={value}
@@ -45,15 +45,15 @@ export function ChatInput({
           disabled={disabled}
           rows={1}
           className={cn(
-            "w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 pr-10",
-            "text-sm text-white placeholder:text-zinc-500",
+            "w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 md:py-2 pr-12",
+            "text-base md:text-sm text-white placeholder:text-zinc-500",
             "focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent",
-            "resize-none min-h-[40px] max-h-[120px]",
+            "resize-none min-h-[44px] md:min-h-[40px] max-h-[120px]",
             disabled && "opacity-50 cursor-not-allowed"
           )}
           style={{
             height: "auto",
-            minHeight: "40px",
+            minHeight: "44px",
           }}
           onInput={(e) => {
             const target = e.target as HTMLTextAreaElement;
@@ -66,9 +66,9 @@ export function ChatInput({
           disabled={disabled || !value.trim()}
           className={cn(
             "absolute right-2 top-1/2 -translate-y-1/2",
-            "w-7 h-7 rounded-md flex items-center justify-center",
-            "text-zinc-400 hover:text-white hover:bg-zinc-700",
-            "transition-colors",
+            "w-9 h-9 md:w-7 md:h-7 rounded-md flex items-center justify-center",
+            "text-zinc-400 hover:text-white hover:bg-zinc-700 active:bg-zinc-600",
+            "transition-colors touch-manipulation",
             (disabled || !value.trim()) && "opacity-50 cursor-not-allowed hover:bg-transparent hover:text-zinc-400"
           )}
           aria-label="Send message"
@@ -77,13 +77,13 @@ export function ChatInput({
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 20 20"
             fill="currentColor"
-            className="w-4 h-4"
+            className="w-5 h-5 md:w-4 md:h-4"
           >
             <path d="M3.105 2.289a.75.75 0 00-.826.95l1.414 4.925A1.5 1.5 0 005.135 9.25h6.115a.75.75 0 010 1.5H5.135a1.5 1.5 0 00-1.442 1.086l-1.414 4.926a.75.75 0 00.826.95 28.896 28.896 0 0015.293-7.154.75.75 0 000-1.115A28.897 28.897 0 003.105 2.289z" />
           </svg>
         </button>
       </div>
-      <p className="text-xs text-zinc-500 mt-2">
+      <p className="text-xs text-zinc-500 mt-2 hidden md:block">
         Press Enter to send, Shift+Enter for new line
       </p>
     </div>

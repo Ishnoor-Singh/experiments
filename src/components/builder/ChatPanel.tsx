@@ -58,8 +58,8 @@ export function ChatPanel({ projectUuid }: ChatPanelProps) {
 
   return (
     <div className="flex-1 flex flex-col h-full">
-      {/* Header */}
-      <div className="h-12 border-b border-zinc-800 flex items-center px-4 shrink-0">
+      {/* Header - hidden on mobile since we have tab bar */}
+      <div className="h-12 border-b border-zinc-800 items-center px-3 md:px-4 shrink-0 hidden md:flex">
         <span className="font-medium text-sm">Chat</span>
         {hasPendingMessage && (
           <div className="ml-2 w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />
@@ -69,7 +69,7 @@ export function ChatPanel({ projectUuid }: ChatPanelProps) {
       {/* Messages area */}
       <div
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto p-4 space-y-3"
+        className="flex-1 overflow-y-auto p-3 md:p-4 space-y-3"
       >
         {messages === undefined ? (
           <div className="text-center text-zinc-500 text-sm">
