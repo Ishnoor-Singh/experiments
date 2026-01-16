@@ -17,7 +17,7 @@ export function ChatPanel({ projectUuid }: ChatPanelProps) {
 
   const messages = useQuery(api.messages.listByProject, { projectUuid });
   const sendAndProcess = useMutation(api.messages.sendAndProcess);
-  const updateMessageStatus = useMutation(api.messages.updateStatus);
+  const retryMessage = useMutation(api.retry.retryMessage);
 
   // Check if any message is pending
   const hasPendingMessage = messages?.some((m) => m.status === "pending");
@@ -42,21 +42,13 @@ export function ChatPanel({ projectUuid }: ChatPanelProps) {
 
   const handleRetry = useCallback(
     async (messageId: Id<"messages">) => {
-      // Get the message content to retry
-      const message = messages?.find((m) => m._id === messageId);
-      if (!message) return;
-
-      // Update status to pending
-      await updateMessageStatus({
-        id: messageId,
-        status: "pending",
-        error: undefined,
+      // Use the proper retry mutation that re-triggers the agent
+      await retryMessage({
+        projectUuid,
+        messageId,
       });
-
-      // Re-trigger the agent (the scheduler will pick it up)
-      // Note: For a more robust retry, we'd need a separate retry mutation
     },
-    [messages, updateMessageStatus]
+    [projectUuid, retryMessage]
   );
 
   // Sort messages by timestamp
@@ -99,7 +91,7 @@ export function ChatPanel({ projectUuid }: ChatPanelProps) {
               status={message.status}
               error={message.error}
               onRetry={
-                message.status === "error"
+                message.role === "user" && message.status === "error"
                   ? () => handleRetry(message._id)
                   : undefined
               }

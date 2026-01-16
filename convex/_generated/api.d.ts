@@ -15,6 +15,7 @@ import type * as applyResult from "../applyResult.js";
 import type * as messages from "../messages.js";
 import type * as projectFiles from "../projectFiles.js";
 import type * as projects from "../projects.js";
+import type * as retry from "../retry.js";
 import type * as seed from "../seed.js";
 
 import type {
@@ -31,6 +32,7 @@ declare const fullApi: ApiFromModules<{
   messages: typeof messages;
   projectFiles: typeof projectFiles;
   projects: typeof projects;
+  retry: typeof retry;
   seed: typeof seed;
 }>;
 
