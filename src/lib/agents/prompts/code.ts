@@ -106,7 +106,7 @@ export function buildCodeAgentPrompt(context: {
       ? context.currentSchemas
           .map(
             (s) =>
-              `- **${s.tableName}**: ${s.fields.map((f) => \`${f.name}: ${f.type}${f.required ? "" : "?"}\`).join(", ")}`
+              `- **${s.tableName}**: ${s.fields.map((f) => `${f.name}: ${f.type}${f.required ? "" : "?"}`).join(", ")}`
           )
           .join("\n")
       : "No data schemas defined yet";
