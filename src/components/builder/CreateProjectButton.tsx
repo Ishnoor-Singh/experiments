@@ -5,6 +5,7 @@ import { api } from "../../../convex/_generated/api";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { generateProjectUuid } from "@/lib/projectUuid";
+import { generateProjectName } from "@/lib/projectNames";
 
 // Since we don't have auth, we'll use a mock userId for now
 const MOCK_USER_ID = "demo-user";
@@ -20,10 +21,11 @@ export function CreateProjectButton() {
     setIsCreating(true);
     try {
       const uuid = generateProjectUuid();
+      const name = generateProjectName();
       await createProject({
         uuid,
         userId: MOCK_USER_ID,
-        name: "Untitled Project",
+        name,
       });
       router.push(`/builder/${uuid}`);
     } catch (error) {
