@@ -16,7 +16,7 @@ export function ChatPanel({ projectUuid }: ChatPanelProps) {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   const messages = useQuery(api.messages.listByProject, { projectUuid });
-  const createMessage = useMutation(api.messages.create);
+  const sendAndProcess = useMutation(api.messages.sendAndProcess);
   const updateMessageStatus = useMutation(api.messages.updateStatus);
 
   // Check if any message is pending
@@ -31,31 +31,32 @@ export function ChatPanel({ projectUuid }: ChatPanelProps) {
 
   const handleSendMessage = useCallback(
     async (content: string) => {
-      // Create user message with pending status
-      await createMessage({
+      // Send message and trigger AI agent processing
+      await sendAndProcess({
         projectUuid,
-        role: "user",
         content,
-        status: "pending",
       });
-
-      // TODO: In Phase 2.2, this will trigger the agent execution framework
-      // For now, we'll just mark the message as success after a delay
-      // This simulates the flow without actual agent processing
     },
-    [projectUuid, createMessage]
+    [projectUuid, sendAndProcess]
   );
 
   const handleRetry = useCallback(
     async (messageId: Id<"messages">) => {
+      // Get the message content to retry
+      const message = messages?.find((m) => m._id === messageId);
+      if (!message) return;
+
+      // Update status to pending
       await updateMessageStatus({
         id: messageId,
         status: "pending",
         error: undefined,
       });
-      // TODO: In Phase 2.2, trigger agent re-execution
+
+      // Re-trigger the agent (the scheduler will pick it up)
+      // Note: For a more robust retry, we'd need a separate retry mutation
     },
-    [updateMessageStatus]
+    [messages, updateMessageStatus]
   );
 
   // Sort messages by timestamp

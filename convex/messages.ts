@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { api } from "./_generated/api";
 
 export const listByProject = query({
   args: {
@@ -54,5 +55,34 @@ export const updateStatus = mutation({
       status: args.status,
       error: args.error,
     });
+  },
+});
+
+/**
+ * Send a user message and trigger the AI agent to process it
+ */
+export const sendAndProcess = mutation({
+  args: {
+    projectUuid: v.string(),
+    content: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Create the user message with pending status
+    const messageId = await ctx.db.insert("messages", {
+      projectUuid: args.projectUuid,
+      role: "user",
+      content: args.content,
+      status: "pending",
+      timestamp: Date.now(),
+    });
+
+    // Schedule the agent action to process the message
+    await ctx.scheduler.runAfter(0, api.agents.processMessage, {
+      projectUuid: args.projectUuid,
+      messageId,
+      userMessage: args.content,
+    });
+
+    return messageId;
   },
 });
