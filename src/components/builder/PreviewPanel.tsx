@@ -8,6 +8,23 @@ interface PreviewPanelProps {
   error: string | null;
 }
 
+function SyncingOverlay({ status }: { status: SystemStatus }) {
+  if (status.state !== "syncing" && status.state !== "compiling") {
+    return null;
+  }
+
+  return (
+    <div className="absolute top-0 left-0 right-0 z-10 bg-amber-500/90 text-black px-4 py-2 flex items-center gap-3 shadow-lg">
+      <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+      <span className="font-medium text-sm">
+        {status.state === "syncing" && "Syncing changes..."}
+        {status.state === "compiling" && "Compiling..."}
+      </span>
+      <span className="text-xs opacity-75">Preview will update automatically</span>
+    </div>
+  );
+}
+
 export function PreviewPanel({ previewUrl, status, error }: PreviewPanelProps) {
   // Show loading states
   if (
@@ -66,7 +83,8 @@ export function PreviewPanel({ previewUrl, status, error }: PreviewPanelProps) {
   // Show preview iframe
   if (previewUrl) {
     return (
-      <div className="flex-1 flex flex-col bg-white">
+      <div className="flex-1 flex flex-col bg-white relative">
+        <SyncingOverlay status={status} />
         <iframe
           src={previewUrl}
           className="flex-1 w-full border-0"

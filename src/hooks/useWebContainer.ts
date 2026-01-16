@@ -40,6 +40,30 @@ export function useWebContainer(
   const isReadyRef = useRef(false);
   const hasMountedRef = useRef(false);
   const lastSyncRef = useRef<number>(0);
+  const isCompilingRef = useRef(false);
+
+  // Handle dev server output to detect compilation state
+  const handleDevServerOutput = useCallback((output: string) => {
+    console.log("[dev server]", output);
+
+    // Next.js compilation patterns
+    if (output.includes("Compiling") || output.includes("compiling")) {
+      if (!isCompilingRef.current) {
+        isCompilingRef.current = true;
+        setStatus({ state: "compiling" });
+      }
+    } else if (
+      output.includes("Compiled") ||
+      output.includes("compiled") ||
+      output.includes("Ready in") ||
+      output.includes("ready in")
+    ) {
+      if (isCompilingRef.current) {
+        isCompilingRef.current = false;
+        setStatus({ state: "ready" });
+      }
+    }
+  }, []);
 
   const seedProject = useMutation(api.seed.seedProject);
 
@@ -92,9 +116,7 @@ export function useWebContainer(
       setStatus({ state: "starting" });
       await startDevServer(
         wc,
-        (output) => {
-          console.log("[dev server]", output);
-        },
+        handleDevServerOutput,
         (port, url) => {
           console.log(`[server-ready] Port ${port}, URL: ${url}`);
           setPreviewUrl(url);
@@ -110,7 +132,7 @@ export function useWebContainer(
     } finally {
       isBootingRef.current = false;
     }
-  }, [files]);
+  }, [files, handleDevServerOutput]);
 
   // Sync files when they change
   const syncFiles = useCallback(async () => {
