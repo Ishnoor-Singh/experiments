@@ -36,7 +36,12 @@ export default defineSchema({
     role: v.union(v.literal("user"), v.literal("assistant")),
     content: v.string(),
     status: v.optional(
-      v.union(v.literal("success"), v.literal("error"), v.literal("pending"))
+      v.union(
+        v.literal("success"),
+        v.literal("error"),
+        v.literal("pending"),
+        v.literal("streaming")
+      )
     ),
     error: v.optional(v.string()),
     timestamp: v.optional(v.number()),

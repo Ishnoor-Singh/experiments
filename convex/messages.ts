@@ -46,7 +46,8 @@ export const updateStatus = mutation({
     status: v.union(
       v.literal("success"),
       v.literal("error"),
-      v.literal("pending")
+      v.literal("pending"),
+      v.literal("streaming")
     ),
     error: v.optional(v.string()),
   },
@@ -55,6 +56,43 @@ export const updateStatus = mutation({
       status: args.status,
       error: args.error,
     });
+  },
+});
+
+/**
+ * Append content to a streaming message
+ */
+export const appendContent = mutation({
+  args: {
+    id: v.id("messages"),
+    content: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const message = await ctx.db.get(args.id);
+    if (!message) return;
+
+    await ctx.db.patch(args.id, {
+      content: message.content + args.content,
+    });
+  },
+});
+
+/**
+ * Create a streaming assistant message
+ */
+export const createStreaming = mutation({
+  args: {
+    projectUuid: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const messageId = await ctx.db.insert("messages", {
+      projectUuid: args.projectUuid,
+      role: "assistant",
+      content: "",
+      status: "streaming",
+      timestamp: Date.now(),
+    });
+    return messageId;
   },
 });
 

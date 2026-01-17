@@ -1,8 +1,9 @@
 "use node";
 
 import { v } from "convex/values";
-import { action } from "./_generated/server";
+import { action, internalMutation } from "./_generated/server";
 import { api, internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 
 // Agent result type matching the frontend types
 interface AgentResult {
@@ -38,7 +39,30 @@ interface AgentResult {
 }
 
 /**
- * Process a user message through the AI agent
+ * Internal mutation to update streaming message content
+ */
+export const updateStreamingContent = internalMutation({
+  args: {
+    messageId: v.id("messages"),
+    content: v.string(),
+    status: v.optional(
+      v.union(
+        v.literal("streaming"),
+        v.literal("success"),
+        v.literal("error")
+      )
+    ),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.messageId, {
+      content: args.content,
+      ...(args.status && { status: args.status }),
+    });
+  },
+});
+
+/**
+ * Process a user message through the AI agent with streaming
  */
 export const processMessage = action({
   args: {
@@ -48,6 +72,12 @@ export const processMessage = action({
   },
   handler: async (ctx, args): Promise<void> => {
     const { projectUuid, messageId, userMessage } = args;
+
+    // Create the streaming assistant message first
+    const assistantMessageId = await ctx.runMutation(
+      api.messages.createStreaming,
+      { projectUuid }
+    );
 
     try {
       // Get current project files
@@ -65,18 +95,25 @@ export const processMessage = action({
         projectUuid,
       });
 
-      // Build conversation history (excluding the current pending message)
+      // Build conversation history (excluding pending messages)
       const conversationHistory = messages
-        .filter((m) => m._id !== messageId && m.status === "success")
+        .filter(
+          (m) =>
+            m._id !== messageId &&
+            m._id !== assistantMessageId &&
+            m.status === "success"
+        )
         .sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0))
-        .slice(-10) // Keep last 10 messages for context
+        .slice(-10)
         .map((m) => ({
           role: m.role as "user" | "assistant",
           content: m.content,
         }));
 
-      // Call the AI agent
-      const result = await callAIAgent({
+      // Call the AI agent with streaming
+      const result = await callAIAgentWithStreaming({
+        ctx,
+        assistantMessageId,
         userMessage,
         conversationHistory,
         currentFiles: files.map((f) => ({ path: f.path, content: f.content })),
@@ -86,39 +123,53 @@ export const processMessage = action({
         })),
       });
 
-      // Apply the result
+      // Update user message status to success
+      await ctx.runMutation(api.messages.updateStatus, {
+        id: messageId,
+        status: "success",
+      });
+
+      // Apply the result (file and schema ops)
       await ctx.runMutation(internal.applyResult.applyAgentResult, {
         projectUuid,
         messageId,
         result,
       });
+
+      // Mark assistant message as complete
+      await ctx.runMutation(internal.agents.updateStreamingContent, {
+        messageId: assistantMessageId,
+        content: result.chatMessage,
+        status: "success",
+      });
     } catch (error) {
-      // Handle errors
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error occurred";
 
+      // Update user message status
       await ctx.runMutation(api.messages.updateStatus, {
         id: messageId,
         status: "error",
         error: errorMessage,
       });
 
-      // Create error response message
-      await ctx.runMutation(api.messages.create, {
-        projectUuid,
-        role: "assistant",
+      // Update assistant message with error
+      await ctx.runMutation(internal.agents.updateStreamingContent, {
+        messageId: assistantMessageId,
         content: `I encountered an error: ${errorMessage}. Please try again.`,
         status: "error",
-        error: errorMessage,
       });
     }
   },
 });
 
 /**
- * Call the Anthropic AI API
+ * Call the Anthropic AI API with streaming
  */
-async function callAIAgent(context: {
+async function callAIAgentWithStreaming(params: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any; // ActionCtx with runMutation
+  assistantMessageId: Id<"messages">;
   userMessage: string;
   conversationHistory: Array<{ role: "user" | "assistant"; content: string }>;
   currentFiles: Array<{ path: string; content: string }>;
@@ -132,6 +183,15 @@ async function callAIAgent(context: {
     }>;
   }>;
 }): Promise<AgentResult> {
+  const {
+    ctx,
+    assistantMessageId,
+    userMessage,
+    conversationHistory,
+    currentFiles,
+    currentSchemas,
+  } = params;
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {
@@ -149,15 +209,15 @@ async function callAIAgent(context: {
   }
 
   // Build the system prompt
-  const systemPrompt = buildSystemPrompt(context);
+  const systemPrompt = buildSystemPrompt({ currentFiles, currentSchemas });
 
   // Build messages array
   const messages = [
-    ...context.conversationHistory.map((m) => ({
+    ...conversationHistory.map((m) => ({
       role: m.role as "user" | "assistant",
       content: m.content,
     })),
-    { role: "user" as const, content: context.userMessage },
+    { role: "user" as const, content: userMessage },
   ];
 
   try {
@@ -171,6 +231,7 @@ async function callAIAgent(context: {
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
         max_tokens: 4096,
+        stream: true,
         system: systemPrompt,
         messages,
       }),
@@ -181,11 +242,73 @@ async function callAIAgent(context: {
       throw new Error(`Anthropic API error: ${response.status} - ${errorText}`);
     }
 
-    const data = await response.json();
-    const assistantMessage = data.content?.[0]?.text || "";
+    // Process the streaming response
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error("No response body");
+    }
 
-    // Parse the response to extract operations
-    return parseAgentResponse(assistantMessage);
+    const decoder = new TextDecoder();
+    let fullContent = "";
+    let lastUpdateLength = 0;
+    const UPDATE_THRESHOLD = 20; // Update every ~20 characters for smooth streaming
+
+    // Extract just the chatMessage part for display (before the JSON code block)
+    const extractDisplayContent = (content: string): string => {
+      // If we haven't started the JSON block yet, show everything
+      const jsonStart = content.indexOf("```json");
+      if (jsonStart === -1) {
+        return content;
+      }
+      // Once JSON starts, just show a progress indicator
+      const preJson = content.substring(0, jsonStart).trim();
+      return preJson || "Generating code...";
+    };
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      const lines = chunk.split("\n");
+
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const data = line.slice(6);
+          if (data === "[DONE]") continue;
+
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.type === "content_block_delta") {
+              const text = parsed.delta?.text || "";
+              fullContent += text;
+
+              // Update the message periodically for smooth streaming
+              if (fullContent.length - lastUpdateLength >= UPDATE_THRESHOLD) {
+                const displayContent = extractDisplayContent(fullContent);
+                await ctx.runMutation(internal.agents.updateStreamingContent, {
+                  messageId: assistantMessageId,
+                  content: displayContent,
+                });
+                lastUpdateLength = fullContent.length;
+              }
+            }
+          } catch {
+            // Ignore parse errors for non-JSON lines
+          }
+        }
+      }
+    }
+
+    // Final update with the display content
+    const finalDisplayContent = extractDisplayContent(fullContent);
+    await ctx.runMutation(internal.agents.updateStreamingContent, {
+      messageId: assistantMessageId,
+      content: finalDisplayContent,
+    });
+
+    // Parse the full response to extract operations
+    return parseAgentResponse(fullContent);
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
@@ -226,7 +349,7 @@ function buildSystemPrompt(context: {
   const fileContents =
     context.currentFiles.length > 0
       ? context.currentFiles
-          .slice(0, 10) // Limit to 10 files to avoid context overflow
+          .slice(0, 10)
           .map((f) => `### ${f.path}\n\`\`\`tsx\n${f.content}\n\`\`\``)
           .join("\n\n")
       : "";
@@ -286,6 +409,8 @@ ${fileContents ? `## Current File Contents\n\n${fileContents}` : ""}
 
 ## Response Format
 
+IMPORTANT: First write a brief explanation of what you're going to create/modify (1-2 sentences). Then provide the JSON.
+
 You MUST respond with valid JSON in this exact format:
 
 \`\`\`json
@@ -312,7 +437,7 @@ You MUST respond with valid JSON in this exact format:
 3. **Working code**: Code must work immediately without additional setup.
 4. **Proper imports**: Include ALL necessary imports at the top.
 5. **No placeholders**: Never use "// TODO" or "// add more here" comments.
-6. **JSON only**: Respond ONLY with valid JSON wrapped in \`\`\`json blocks. No other text.
+6. **JSON only**: After your brief explanation, respond ONLY with valid JSON wrapped in \`\`\`json blocks.
 7. **File paths**: Use paths like \`/app/page.tsx\`, \`/components/MyComponent.tsx\`, \`/lib/utils.ts\`. Never modify config files (package.json, tsconfig.json, etc.).
 8. **Schema types**: Use \`string\`, \`number\`, \`boolean\`, \`date\`, or \`relation\`.
 9. **Update existing files**: When modifying the main page, update \`/app/page.tsx\` (not create a new file). Check the existing files list above.`;

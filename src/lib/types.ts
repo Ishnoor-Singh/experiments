@@ -83,7 +83,7 @@ export type Message = {
   projectUuid: string;
   role: "user" | "assistant";
   content: string;
-  status: "success" | "error" | "pending";
+  status: "success" | "error" | "pending" | "streaming";
   error?: string;
   timestamp: number;
 };

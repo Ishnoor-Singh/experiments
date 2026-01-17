@@ -19,15 +19,20 @@ export function ChatPanel({ projectUuid }: ChatPanelProps) {
   const sendAndProcess = useMutation(api.messages.sendAndProcess);
   const retryMessage = useMutation(api.retry.retryMessage);
 
-  // Check if any message is pending
-  const hasPendingMessage = messages?.some((m) => m.status === "pending");
+  // Check if any message is pending or streaming
+  const hasPendingMessage = messages?.some(
+    (m) => m.status === "pending" || m.status === "streaming"
+  );
 
-  // Scroll to bottom when new messages arrive
+  // Find streaming message to track content updates
+  const streamingMessage = messages?.find((m) => m.status === "streaming");
+
+  // Scroll to bottom when new messages arrive or streaming content updates
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages?.length]);
+  }, [messages?.length, streamingMessage?.content]);
 
   const handleSendMessage = useCallback(
     async (content: string) => {
