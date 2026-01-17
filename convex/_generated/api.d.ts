@@ -12,6 +12,7 @@ import type * as agents from "../agents.js";
 import type * as appRecords from "../appRecords.js";
 import type * as appSchemas from "../appSchemas.js";
 import type * as applyResult from "../applyResult.js";
+import type * as internalMutations from "../internalMutations.js";
 import type * as messages from "../messages.js";
 import type * as projectFiles from "../projectFiles.js";
 import type * as projects from "../projects.js";
@@ -29,6 +30,7 @@ declare const fullApi: ApiFromModules<{
   appRecords: typeof appRecords;
   appSchemas: typeof appSchemas;
   applyResult: typeof applyResult;
+  internalMutations: typeof internalMutations;
   messages: typeof messages;
   projectFiles: typeof projectFiles;
   projects: typeof projects;
