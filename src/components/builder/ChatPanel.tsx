@@ -82,10 +82,12 @@ export function ChatPanel({ projectUuid }: ChatPanelProps) {
           </div>
         ) : sortedMessages.length === 0 ? (
           <div className="text-center text-zinc-500 text-sm py-8">
-            <p className="mb-2">No messages yet</p>
-            <p className="text-xs text-zinc-600">
-              Describe what you want to build to get started
-            </p>
+            <p className="mb-3">Welcome! Describe what you want to build:</p>
+            <div className="space-y-2 text-xs text-zinc-600">
+              <p>&quot;Build me a todo app with add and delete&quot;</p>
+              <p>&quot;Create a contact form with name and email&quot;</p>
+              <p>&quot;Make a counter with + and - buttons&quot;</p>
+            </div>
           </div>
         ) : (
           sortedMessages.map((message) => (
