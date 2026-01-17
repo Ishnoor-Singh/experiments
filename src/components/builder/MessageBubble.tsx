@@ -24,17 +24,33 @@ function sanitizeForNonTechnicalUsers(text: string): string {
   // Remove any code blocks
   clean = clean.replace(/```[\s\S]*?```/g, "");
 
+  // Remove raw JSON objects - multi-line
+  clean = clean.replace(/\{[\s\S]*?"(fileOps|schemaOps|chatMessage)"[\s\S]*?\}/g, "");
+
+  // Remove single-line JSON-like content
+  clean = clean.replace(/\{[^{}]*"(type|path|content)"[^{}]*\}/g, "");
+
+  // Remove lines that look like JSON properties
+  clean = clean.replace(/^\s*"[^"]+"\s*:\s*[\[\{"].*$/gm, "");
+  clean = clean.replace(/^\s*[\[\]{}],?\s*$/gm, "");
+
   // Remove inline code that looks like file paths
   clean = clean.replace(/`[^`]*\.(tsx?|jsx?|ts|js|json)`/g, "");
 
   // Remove file paths
   clean = clean.replace(/\/\w+\/[\w./]+\.(tsx?|jsx?|ts|js)/g, "");
 
-  // Remove common technical terms in context
+  // Remove technical terms from context
   clean = clean.replace(/I (created|updated|modified) (the )?`[^`]+`/gi, "I made some changes");
+
+  // Remove remaining inline code backticks with technical content
+  clean = clean.replace(/`(useState|useEffect|props|className|onClick|onChange|import|export|function|const|let|var)[^`]*`/gi, "");
 
   // Clean up multiple newlines
   clean = clean.replace(/\n{3,}/g, "\n\n");
+
+  // Clean up excessive whitespace
+  clean = clean.replace(/[ \t]+/g, " ");
 
   return clean.trim();
 }

@@ -788,14 +788,30 @@ async function callAIAgentWithStreaming(params: {
 
     // Extract just the chatMessage part for display (before the JSON code block)
     const extractDisplayContent = (content: string): string => {
-      // If we haven't started the JSON block yet, show everything
+      // Check for JSON code block
       const jsonStart = content.indexOf("```json");
-      if (jsonStart === -1) {
-        return content;
+      if (jsonStart !== -1) {
+        // Once JSON starts, show only pre-JSON content or a progress indicator
+        const preJson = content.substring(0, jsonStart).trim();
+        return preJson || "Building your app...";
       }
-      // Once JSON starts, just show a progress indicator
-      const preJson = content.substring(0, jsonStart).trim();
-      return preJson || "Generating code...";
+
+      // Check for raw JSON (starts with { or has JSON-like patterns)
+      const trimmed = content.trim();
+      if (trimmed.startsWith("{") || trimmed.includes('"fileOps"') || trimmed.includes('"chatMessage"')) {
+        // Looks like raw JSON, show a progress message instead
+        return "Building your app...";
+      }
+
+      // Check for code blocks without json tag
+      const codeBlockStart = content.indexOf("```");
+      if (codeBlockStart !== -1) {
+        const preCode = content.substring(0, codeBlockStart).trim();
+        return preCode || "Building your app...";
+      }
+
+      // Safe to show the content
+      return content;
     };
 
     while (true) {
@@ -1054,14 +1070,55 @@ function parseAgentResponse(response: string): AgentResult {
       status: "success",
     };
   } catch {
-    // If parsing fails, treat the response as just a chat message
+    // If parsing fails, clean up the response before showing to user
+    // This prevents raw JSON/code from being displayed
+    const cleanedResponse = cleanResponseForDisplay(response);
     return {
-      chatMessage: response,
+      chatMessage: cleanedResponse,
       fileOps: [],
       schemaOps: [],
       status: "success",
     };
   }
+}
+
+/**
+ * Clean up a raw AI response to be safe for display to non-technical users
+ * This is the fallback when JSON parsing fails
+ */
+function cleanResponseForDisplay(response: string): string {
+  let clean = response;
+
+  // Remove JSON code blocks
+  clean = clean.replace(/```json[\s\S]*?```/g, "");
+
+  // Remove any code blocks
+  clean = clean.replace(/```[\s\S]*?```/g, "");
+
+  // Remove raw JSON objects (lines starting with { or containing "type":)
+  clean = clean.replace(/^\s*\{[\s\S]*?\}\s*$/gm, "");
+
+  // Remove lines that look like JSON properties
+  clean = clean.replace(/^\s*"[^"]+"\s*:\s*[\[\{"].*$/gm, "");
+  clean = clean.replace(/^\s*[\[\]{}],?\s*$/gm, "");
+
+  // Remove file paths and technical references
+  clean = clean.replace(/`[^`]+\.(tsx?|jsx?|ts|js|json)`/g, "");
+  clean = clean.replace(/\/\w+\/[\w./]+\.(tsx?|jsx?|ts|js)/g, "");
+
+  // Remove common technical terms
+  clean = clean.replace(/\b(fileOps|schemaOps|chatMessage|content|type|path)\b:\s*/gi, "");
+
+  // Clean up extra whitespace and newlines
+  clean = clean.replace(/\n{3,}/g, "\n\n");
+  clean = clean.trim();
+
+  // If the result is too short or empty, provide a default message
+  if (clean.length < 20) {
+    return "I've made some changes to your app. Check the preview to see the updates!";
+  }
+
+  return clean;
 }
 
 // ============================================================================
