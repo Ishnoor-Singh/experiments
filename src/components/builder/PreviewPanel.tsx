@@ -1,11 +1,34 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { SystemStatus } from "@/lib/types";
 
 interface PreviewPanelProps {
   previewUrl: string | null;
   status: SystemStatus;
   error: string | null;
+}
+
+/**
+ * Check if running on a mobile device
+ */
+function useIsMobile(): boolean {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const userAgent = navigator.userAgent.toLowerCase();
+      const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+      const isSmallScreen = window.innerWidth < 768;
+      setIsMobile(isMobileDevice || isSmallScreen);
+    };
+
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  return isMobile;
 }
 
 function SyncingOverlay({ status }: { status: SystemStatus }) {
@@ -26,26 +49,63 @@ function SyncingOverlay({ status }: { status: SystemStatus }) {
 }
 
 export function PreviewPanel({ previewUrl, status, error }: PreviewPanelProps) {
-  // Show loading states
+  const isMobile = useIsMobile();
+
+  // Show loading states with mobile-aware messaging
   if (
     status.state === "booting" ||
     status.state === "installing" ||
     status.state === "starting"
   ) {
+    // Calculate progress step (1-3)
+    const step =
+      status.state === "booting" ? 1 :
+      status.state === "installing" ? 2 : 3;
+
     return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-zinc-950">
-        <div className="text-center">
-          <div className="mb-4">
+      <div className="flex-1 flex flex-col items-center justify-center bg-zinc-950 px-4">
+        <div className="text-center max-w-sm">
+          {/* Progress indicator */}
+          <div className="mb-6">
+            <div className="flex justify-center gap-2 mb-4">
+              {[1, 2, 3].map((s) => (
+                <div
+                  key={s}
+                  className={`w-3 h-3 rounded-full transition-colors ${
+                    s < step ? "bg-green-500" :
+                    s === step ? "bg-indigo-500 animate-pulse" :
+                    "bg-zinc-700"
+                  }`}
+                />
+              ))}
+            </div>
             <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto" />
           </div>
-          <div className="text-zinc-400 text-lg mb-2">
-            {status.state === "booting" && "Starting WebContainer..."}
-            {status.state === "installing" && "Installing dependencies..."}
-            {status.state === "starting" && "Starting dev server..."}
+
+          <div className="text-zinc-300 text-lg mb-2 font-medium">
+            {status.state === "booting" && "Setting up environment..."}
+            {status.state === "installing" && "Installing packages..."}
+            {status.state === "starting" && "Almost ready..."}
           </div>
-          <div className="text-zinc-500 text-sm">
-            This may take a few moments on first load
+
+          <div className="text-zinc-500 text-sm mb-4">
+            {status.state === "booting" && "Preparing your workspace"}
+            {status.state === "installing" && (
+              isMobile
+                ? "This takes longer on mobile devices"
+                : "Downloading dependencies"
+            )}
+            {status.state === "starting" && "Starting the preview server"}
           </div>
+
+          {/* Mobile-specific tips */}
+          {isMobile && status.state === "installing" && (
+            <div className="mt-4 p-3 bg-zinc-900 rounded-lg border border-zinc-800">
+              <p className="text-xs text-zinc-400">
+                Tip: For faster loading, try using a desktop browser. Mobile devices have limited processing power for development environments.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     );

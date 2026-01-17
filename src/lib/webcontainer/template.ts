@@ -3,13 +3,45 @@
  * These files are seeded into Convex when a new project is created
  */
 
+/**
+ * Core essential files that must always be included
+ * Separating these helps with potential future optimizations
+ */
+const ESSENTIAL_FILES = [
+  "/package.json",
+  "/tsconfig.json",
+  "/next.config.js",
+  "/tailwind.config.js",
+  "/postcss.config.js",
+  "/app/layout.tsx",
+  "/app/globals.css",
+  "/app/page.tsx",
+  "/components/ConvexClientProvider.tsx",
+  "/lib/utils.ts",
+  "/lib/useAppData.ts",
+  "/convex/_generated/api.d.ts",
+  "/convex/_generated/api.js",
+];
+
+/**
+ * UI component files that can be loaded on-demand
+ */
+const UI_COMPONENT_FILES = [
+  "/components/ui/button.tsx",
+  "/components/ui/card.tsx",
+  "/components/ui/input.tsx",
+  "/components/ui/label.tsx",
+  "/components/ui/skeleton.tsx",
+  "/components/ui/table.tsx",
+];
+
 export const templateFiles: Record<string, string> = {
   "/package.json": `{
   "name": "builder-app",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start"
   },
